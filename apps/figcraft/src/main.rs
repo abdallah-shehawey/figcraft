@@ -262,7 +262,9 @@ fn main() -> eframe::Result {
     if let Some(icon) = icon {
         viewport = viewport.with_icon(icon);
     }
-    let mut options = eframe::NativeOptions { viewport, renderer: eframe::Renderer::Wgpu, ..Default::default() };
+    // Control-channel runs neither restore nor save the native window, so their screenshots start
+    // from the same window every time.
+    let mut options = eframe::NativeOptions { viewport, renderer: eframe::Renderer::Wgpu, persist_window: port.is_none(), ..Default::default() };
     graphics::configure(&mut options.wgpu_options);
     figcraft_ui_egui::windows::install(fig);
     // Registered before the event loop starts, so it catches the Finder event that launched the app

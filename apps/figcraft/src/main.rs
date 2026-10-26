@@ -277,6 +277,7 @@ fn main() -> eframe::Result {
         "FigCraft",
         options,
         Box::new(move |cc| {
+            discard_legacy_widget_memory(&cc.egui_ctx);
             with_app(|fig| fig.services.set_egui_context(&cc.egui_ctx));
             Ok(Box::new(App {
                 queue,
@@ -404,5 +405,23 @@ mod start_tests {
         assert!(!opens_new_file(false, true, false), "Home when the preference asks");
         assert!(opens_new_file(false, true, true), "--control still starts with a document");
         assert!(!opens_new_file(true, false, false), "a first run shows the home screen");
+    }
+}
+
+/// Discard stale widget state while eframe retains its separate native window record.
+fn discard_legacy_widget_memory(ctx: &egui::Context) {
+    ctx.memory_mut(|memory| *memory = egui::Memory::default());
+}
+
+#[cfg(test)]
+mod window_persistence_tests {
+    #[test]
+    fn startup_discards_legacy_widget_memory() {
+        let ctx = egui::Context::default();
+        let id = egui::Id::unique("legacy-widget-state");
+        ctx.data_mut(|data| data.insert_persisted(id, 42_u32));
+        assert_eq!(ctx.data_mut(|data| data.get_persisted::<u32>(id)), Some(42));
+        super::discard_legacy_widget_memory(&ctx);
+        assert_eq!(ctx.data_mut(|data| data.get_persisted::<u32>(id)), None);
     }
 }

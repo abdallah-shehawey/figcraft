@@ -139,6 +139,8 @@ impl eframe::App for App {
     }
 }
 
+/// Start the native editor, initialize graphics and apply the interactive window policy.
+/// Control sessions keep their requested viewport and leave saved native geometry alone.
 fn main() -> eframe::Result {
     // Windows: the update helper is a copy of this program started with `--finish-update`.
     #[cfg(windows)]

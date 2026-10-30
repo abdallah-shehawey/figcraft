@@ -19,6 +19,14 @@ The server lives in `crates/mcp` (`figcraft-mcp`) and is started by the CLI:
 
 `--attach` also takes `host:port`. The control channel only listens on 127.0.0.1.
 
+While an attached agent works, the app shows where, as it shows a person in a live session: its
+avatar, in a colour of its own and named as its comments are signed ("Claude (agent)", see
+Comments), joins the people row at the top of the right panel, and the canvas outlines the layers
+its last edit changed, or that it last selected, with its name. Both go 8 seconds after its last
+command, and only the file it works in shows them. This is display only: no undo step, nothing
+saved, nothing sent to a live session's other people, and nothing changes in what the agent may
+do.
+
 Attached calls are never automatically replayed after a transport failure: the app may have
 applied the request before its reply was lost. The error reports that the operation may have
 completed; inspect the document before retrying an edit. The next explicit call reconnects.
@@ -950,7 +958,9 @@ remove and reorder layers there, unlike the rest of an instance). It is a compon
 `value: {layer, edited, layers}`).
 
 - **Define** (on the main): `component.makeSlot {id (a frame inside a main component), name?,
-  preferred? [component or set ids]}` (the property is named after the frame by default);
+  preferred? [component or set ids]}` (the property is named after the frame by default; a new
+  property goes last, as `component.properties` lists them in the order they were made, a rename
+  keeping the place);
   `component.editProperty {name, preferred}`; `component.removeSlot {id}` (instances lose their own
   content in it). `component.addProperty {type: "slot", layer}` and `component.bindProperty {field:
   "slot"}` work too (one frame per component for a slot).
@@ -1176,8 +1186,18 @@ someone (`comment.people` lists the names used in the file and, as `you`, who is
 Read state is kept per name: a new message is unread for everyone but its author;
 `comment.markRead {id? | link?, read?}` marks one thread (or, without `id`, all of them) read or
 unread (not an undo step). `comment.list {page? | "all", filter? (all|open|resolved|mine|unread),
-sort? (date|page), query?, frame?}` returns the threads with their position, `frame`/`frameName`,
-`pageName`, `unread`, `link` and replies (with `edited` times and `reactions`). Links are
+sort? (date|page), query?, frame?, mentions?}` returns the threads with their position, `frame`/`frameName`,
+`pageName`, `unread`, `link` and replies (with `edited` times and `reactions`). Each message, the
+first and every reply, has `mentions`: the names it @mentions by the rule the app highlights them
+with, `{name, known, you}` each. `known` means the file's people (`comment.people`, or you) have
+the name, spelt as they spell it; `you` means it names you (or `author`). `@Name` counts at the
+start of the text or after a character that isn't a letter or digit, so `a@b.com` mentions nobody;
+an unknown name is the letters and digits after the `@`. `mentions: "<name>"` (any case; a leading
+`@` is fine) lists only the threads where a message, the first or a reply, mentions that name as
+those `mentions` report it, combined with the other filters: `{"mentions": "Claude", "filter":
+"unread"}` is the unread threads that tag Claude. `@Ada Lovelace` mentions "Ada Lovelace", not
+"Ada", when the file knows Ada Lovelace; a name nobody in the file has can still be several words
+(`"Zoe Smith"` finds `@Zoe Smith`). Links are
 `figcraft://comment/<id>`: `comment.link {id}` returns one, `comment.open {id | link, view?}` goes
 to its page, zooms to its frame (`fit`, the default; `center` keeps the zoom; `keep` doesn't move)
 and opens it in the app, and `comment.next {id?, dir?, …list params}` steps to the next or previous
@@ -1323,7 +1343,8 @@ joined file opens as a new document).
 
 Sessions are per document: every open document has its own session or none, and several run at
 once (host one document, join another, publish a third). They keep syncing while another document
-is active; there your presence is empty (no cursor, selection or view). The `collab.*` commands
+is active; there your presence is empty (no cursor, selection or view). An attached agent's own
+presence in the app (above) is never part of a live session's presence. The `collab.*` commands
 and `collab.peers` are about the **active document's** session (`doc.switch {index}` changes which
 one that is), and `sessions` in `collab.peers` lists them all. Closing a document ends its session
 only: a host stops hosting it, a guest leaves it.
@@ -1372,7 +1393,8 @@ only: a host stops hosting it, a guest leaves it.
   session, a revoked link, an unreachable host, a `wss://` server whose certificate isn't trusted:
   see `FIGCRAFT_CA_FILE` in [`server.md`](server.md#behind-a-reverse-proxy-tls)). `collab.leave {}`
   leaves the active document's session (or ends a join started from it that is still on its way
-  or failed); the synced document stays open as your copy.
+  or failed), and `collab.leave {session}` the session with that id (from `sessions`), whichever
+  document is active; the synced document stays open as your copy.
 - `collab.publish {server, name?, key?}` puts the active document on a `figcraft-server`
   ([`server.md`](server.md)) and syncs it from there (as that document's session; others go on): `server` is the address
   `figcraft-server key` prints (`ws://host:47900/?key=…`; or give `key` separately), `name` the
